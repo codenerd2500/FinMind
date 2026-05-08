@@ -8,6 +8,7 @@ import Concierge from './pages/Concierge';
 import TradingArena from './pages/TradingArena';
 import Portfolio from './pages/Portfolio';
 import Insights from './pages/Insights';
+import MyData from './pages/MyData';
 
 const qc = new QueryClient();
 
@@ -17,6 +18,7 @@ const NAV_ITEMS = [
   { path: '/trading', label: 'Trading Arena', icon: '◈' },
   { path: '/portfolio', label: 'Portfolio', icon: '◬' },
   { path: '/insights', label: 'Smart Insights', icon: '◉' },
+  { path: '/mydata', label: 'My Data', icon: '⊞' },
 ];
 
 function Sidebar() {
@@ -81,6 +83,7 @@ const PAGE_TITLES = {
   '/trading': 'Trading Arena',
   '/portfolio': 'Portfolio Watch',
   '/insights': 'Smart Insights',
+  '/mydata': 'My Data',
 };
 
 function Topbar({ path }) {
@@ -116,6 +119,7 @@ export default function App() {
               <Route path="/trading" element={<><Topbar path="/trading" /><div className="page-content" style={{ overflow: 'hidden', padding: '12px' }}><TradingArena /></div></>} />
               <Route path="/portfolio" element={<><Topbar path="/portfolio" /><div className="page-content"><Portfolio /></div></>} />
               <Route path="/insights" element={<><Topbar path="/insights" /><div className="page-content"><Insights /></div></>} />
+              <Route path="/mydata" element={<><Topbar path="/mydata" /><div className="page-content"><MyData /></div></>} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </div>

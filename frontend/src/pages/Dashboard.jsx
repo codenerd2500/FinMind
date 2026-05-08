@@ -6,6 +6,7 @@ import {
 import { MOCK_TRANSACTIONS, MOCK_FIXED_COSTS, MOCK_SPENDING_DATA, fmt } from '../mockData';
 import { useStore } from '../store';
 import { LiveDot, Delta, CircularGauge, Badge } from '../components';
+import { useNavigate } from 'react-router-dom';
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
@@ -48,38 +49,46 @@ function SpendingChart() {
 }
 
 function MetricCards() {
-  const { netWorth, portfolioValue, monthlyBudget, monthlySpent, balance, fixedCosts, savingsGoal } = useStore();
-  const daysRemaining = 23;
-  const safeToSpend = (balance - fixedCosts - savingsGoal) / daysRemaining;
+  const { netWorth, portfolioValue, monthlyBudget, monthlySpent, balance, fixedCosts, savingsGoal, userTransactions } = useStore();
+  const navigate = useNavigate();
+  const hasData = userTransactions.length > 0;
+  const daysRemaining = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate() - new Date().getDate();
+  const safeToSpend = hasData ? Math.max(0, (balance - fixedCosts - savingsGoal) / Math.max(daysRemaining, 1)) : 0;
   const gaugeColor = safeToSpend > 500 ? 'green' : safeToSpend > 200 ? 'amber' : 'red';
-  const spendPct = (monthlySpent / monthlyBudget) * 100;
+  const spendPct = monthlyBudget > 0 ? Math.min((monthlySpent / monthlyBudget) * 100, 100) : 0;
+
+  // Compute category breakdown from user transactions
+  const expenseTxs = userTransactions.filter(t => t.amount < 0);
+  const categoryTotals = {};
+  expenseTxs.forEach(t => { categoryTotals[t.category] = (categoryTotals[t.category] || 0) + Math.abs(t.amount); });
+  const topCategories = Object.entries(categoryTotals).sort((a,b)=>b[1]-a[1]).slice(0, 3);
 
   return (
     <div className="grid-12" style={{ marginBottom: 16 }}>
-      {/* Net Worth */}
+      {/* Net Balance */}
       <div className="metric-card col-3">
-        <div className="metric-label">Net Worth</div>
-        <div className="metric-value">{fmt(netWorth)}</div>
-        <Delta value={2.3} />
-        <div style={{ marginTop: 8, display: 'flex', gap: 2 }}>
-          {[40,55,45,60,52,68,65].map((h, i) => (
-            <div key={i} style={{ flex: 1, height: h * 0.4, background: 'var(--teal)', opacity: 0.6, borderRadius: 2, alignSelf: 'flex-end' }} />
-          ))}
+        <div className="metric-label">Net Balance</div>
+        <div className="metric-value" style={{ color: balance >= 0 ? 'var(--teal)' : 'var(--rose)' }}>
+          {hasData ? fmt(balance) : <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>No data yet</span>}
         </div>
-        <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>7-day sparkline</div>
+        {hasData ? <Delta value={2.3} /> : null}
+        {!hasData && (
+          <button className="btn btn-ghost btn-sm" style={{ marginTop: 8 }} onClick={() => navigate('/mydata')}>+ Add your data</button>
+        )}
+        <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 6 }}>{userTransactions.length} transactions</div>
       </div>
 
       {/* Safe-to-Spend */}
       <div className="metric-card col-3" style={{ alignItems: 'center' }}>
         <div className="metric-label" style={{ textAlign: 'center' }}>Safe-to-Spend</div>
-        <CircularGauge value={safeToSpend} max={2000} color={gaugeColor} label={fmt(Math.max(0, safeToSpend))} />
+        <CircularGauge value={safeToSpend} max={Math.max(monthlyBudget / 30, 1)} color={gaugeColor} label={hasData ? fmt(safeToSpend) : '—'} />
         <div style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center' }}>{daysRemaining} days remaining</div>
       </div>
 
       {/* Monthly Spend */}
       <div className="metric-card col-3">
         <div className="metric-label">Monthly Spend</div>
-        <div className="metric-value">{fmt(monthlySpent)}</div>
+        <div className="metric-value">{hasData ? fmt(monthlySpent) : fmt(0)}</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
           <div className="progress-track" style={{ flex: 1 }}>
             <div className="progress-fill" style={{ width: `${spendPct}%`, background: spendPct > 85 ? 'var(--rose)' : spendPct > 65 ? 'var(--amber)' : 'var(--teal)' }} />
@@ -88,16 +97,16 @@ function MetricCards() {
         </div>
         <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Budget: {fmt(monthlyBudget)}</div>
         <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
-          <Badge type="teal">Food 28%</Badge>
-          <Badge type="amber">Bills 31%</Badge>
-          <Badge type="muted">Other 41%</Badge>
+          {hasData && topCategories.length > 0
+            ? topCategories.map(([cat]) => <Badge key={cat} type="teal">{cat.split(' ')[0]}</Badge>)
+            : [<Badge key="f" type="muted">No data</Badge>]}
         </div>
       </div>
 
       {/* Portfolio Value */}
       <div className="metric-card col-3">
         <div className="metric-label">Portfolio Value</div>
-        <div className="metric-value">{fmt(portfolioValue)}</div>
+        <div className="metric-value">{fmt(portfolioValue || 0)}</div>
         <Delta value={1.24} />
         <div style={{ marginTop: 8, display: 'flex', gap: 6 }}>
           <Badge type="teal">P&amp;L: +{fmt(24800)}</Badge>
@@ -136,14 +145,31 @@ function AIBrief() {
 }
 
 function Transactions() {
+  const { userTransactions } = useStore();
+  const navigate = useNavigate();
   const [hoveredId, setHoveredId] = useState(null);
+  // Show user transactions first, then fill with mock ones if no user data
+  const displayTxs = userTransactions.length > 0
+    ? userTransactions.slice(0, 8)
+    : MOCK_TRANSACTIONS.slice(0, 8);
+  const isUserData = userTransactions.length > 0;
+
   return (
     <div style={{ background: 'var(--surface-2)', border: '0.5px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '16px 20px' }}>
       <div className="panel-header">
-        <div className="panel-title">Recent Transactions</div>
-        <button className="btn btn-ghost btn-sm">View all</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div className="panel-title">Recent Transactions</div>
+          {!isUserData && <Badge type="muted">Sample Data</Badge>}
+          {isUserData && <Badge type="teal">{userTransactions.length} entries</Badge>}
+        </div>
+        <button className="btn btn-ghost btn-sm" onClick={() => navigate('/mydata')}>Manage →</button>
       </div>
-      {MOCK_TRANSACTIONS.slice(0, 8).map(tx => (
+      {!isUserData && (
+        <div style={{ padding: '8px 12px', background: 'rgba(200,128,63,0.08)', border: '0.5px solid rgba(200,128,63,0.3)', borderRadius: 'var(--radius-md)', marginBottom: 12, fontSize: 12, color: 'var(--amber)' }}>
+          ⚡ Showing sample data. <button className="btn btn-ghost btn-sm" style={{ display: 'inline', padding: '0 6px', color: 'var(--amber)' }} onClick={() => navigate('/mydata')}>Add your real transactions →</button>
+        </div>
+      )}
+      {displayTxs.map(tx => (
         <div
           key={tx.id}
           className="tx-row"
@@ -161,9 +187,6 @@ function Transactions() {
             </div>
             <div className="tx-date">{tx.date}</div>
           </div>
-          {hoveredId === tx.id && (
-            <button className="btn btn-ghost btn-sm" style={{ position: 'absolute', right: 0, opacity: 0.9 }}>Edit</button>
-          )}
         </div>
       ))}
     </div>
