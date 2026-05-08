@@ -32,3 +32,27 @@ Navigate to the backend directory, install the dependencies, and start the local
 cd backend
 pip install -r requirements.txt
 uvicorn main:app --reload
+
+2. Frontend Setup
+Open a new terminal window, navigate to the frontend directory, install dependencies, and start the Vite/Create React App server:
+
+Bash
+cd frontend
+npm install
+npm run dev
+🐳 Docker Build & Production Architecture
+This project uses a multi-stage Dockerfile to keep the final image lightweight and secure:
+
+
+Build Stage (Frontend): Compiles the React application into production-ready static files using npm run build.   
+
+
+Final Stage (Backend): Sets up a lean Python 3.11 image and installs the necessary backend dependencies via pip install --no-cache-dir.   
+
+
+Integration: The compiled frontend UI (frontend/dist) is copied directly into the backend's static directory.  FastAPI handles serving both the API routes and the React static files.  
+
+Running with Docker Locally
+To test the production build on your local machine:
+docker build -t finmind-app .
+docker run -p 8080:8080 finmind-app
