@@ -1,0 +1,18 @@
+/* App.css — additional layout styles */
+.App { width: 100%; }
+
+/* Ensure recharts tooltips look consistent */
+.recharts-tooltip-wrapper { outline: none !important; }
+
+/* Table improvements */
+.data-table th:first-child { padding-left: 20px; }
+.data-table td:first-child { padding-left: 20px; }
+
+/* Ensure form-label exists for order form */
+.form-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
